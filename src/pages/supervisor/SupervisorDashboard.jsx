@@ -49,16 +49,21 @@ export default function SupervisorDashboard() {
   const handleUpdateReportStatus = async (reportId, nextStatus) => {
     setStatusMsg({ text: '', type: '' });
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('situation_reports')
         .update({
           status: nextStatus,
           reviewed_by: user.id,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', reportId);
+        .eq('id', reportId)
+        .select();
 
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error('Database RLS blocked the update. Check account permissions.');
+      }
 
       setStatusMsg({
         text: `Report status updated to ${nextStatus}.`,
@@ -66,7 +71,8 @@ export default function SupervisorDashboard() {
       });
       loadSupervisorData();
     } catch (err) {
-      setStatusMsg({ text: err.message, type: 'error' });
+      console.error('Update error:', err);
+      setStatusMsg({ text: err.message || 'Failed to update report status.', type: 'error' });
     }
   };
 
