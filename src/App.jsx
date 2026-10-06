@@ -18,6 +18,10 @@ import SupervisorDashboard from './pages/supervisor/SupervisorDashboard';
 import EncoderDashboard from './pages/encoder/EncoderDashboard';
 import ViewerDashboard from './pages/viewer/ViewerDashboard';
 
+// SitRep Collaborative & Review Pages
+import SitRepWorkspace from './pages/encoder/SitRepWorkspace.jsx';
+import SupervisorSitRepReview from './pages/supervisor/SupervisorSitRepReview.jsx';
+
 // Helper component: routes active authenticated users to their corresponding dashboard
 function RoleHomeDispatcher() {
   const { role } = useAuth();
@@ -55,14 +59,16 @@ export default function App() {
             <Route path="/admin" element={<AdminDashboard />} />
           </Route>
 
-          {/* SUPERVISOR-only routes */}
+          {/* SUPERVISOR routes */}
           <Route element={<RoleRoute allowedRoles={['SUPERVISOR', 'ADMIN']} />}>
             <Route path="/supervisor" element={<SupervisorDashboard />} />
+            <Route path="/supervisor/sitrep/:id" element={<SupervisorSitRepReview />} />
           </Route>
 
-          {/* ENCODER routes */}
+          {/* ENCODER & COLLABORATIVE WORKSPACE routes */}
           <Route element={<RoleRoute allowedRoles={['ENCODER', 'SUPERVISOR', 'ADMIN']} />}>
             <Route path="/encoder" element={<EncoderDashboard />} />
+            <Route path="/sitrep/:id" element={<SitRepWorkspace />} />
           </Route>
 
           {/* VIEWER routes */}

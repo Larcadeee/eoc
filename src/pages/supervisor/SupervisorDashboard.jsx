@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase/client';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function SupervisorDashboard() {
+  const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const [reports, setReports] = useState([]);
   const [incidents, setIncidents] = useState([]);
@@ -128,6 +130,7 @@ export default function SupervisorDashboard() {
               Supervising Officer: {profile?.full_name || profile?.email}
             </p>
           </div>
+
           <button
             onClick={signOut}
             className="self-start sm:self-auto px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-xs font-semibold rounded-lg text-slate-700 shadow-sm transition-colors"
@@ -276,6 +279,14 @@ export default function SupervisorDashboard() {
                       </td>
 
                       <td className="px-5 py-4 text-right space-x-1.5 whitespace-nowrap">
+                        {/* Review SitRep Button */}
+                        <button
+                          onClick={() => navigate(`/supervisor/sitrep/${r.id}`)}
+                          className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-xs font-semibold shadow-sm transition-colors"
+                        >
+                          Review SitRep
+                        </button>
+
                         {r.status === 'SUBMITTED' && (
                           <>
                             <button

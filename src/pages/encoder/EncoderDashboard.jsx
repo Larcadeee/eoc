@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase/client';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function EncoderDashboard() {
+  const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   
   // Data State
@@ -26,7 +28,7 @@ export default function EncoderDashboard() {
   const [activeEvacCenters, setActiveEvacCenters] = useState(0);
   const [submittingReport, setSubmittingReport] = useState(false);
 
-  // Fetch active incidents & reports encoded by this user
+  // Fetch active incidents & situation reports
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -43,14 +45,13 @@ export default function EncoderDashboard() {
         setSelectedIncidentId(incidentData[0].id);
       }
 
-      // 2. Fetch User's Situation Reports
+      // 2. Fetch Situation Reports (All active shared SitReps for collaborative intake)
       const { data: reportsData, error: repError } = await supabase
         .from('situation_reports')
         .select(`
           *,
           incidents (title, location)
         `)
-        .eq('encoded_by', user.id)
         .order('created_at', { ascending: false });
 
       if (repError) throw repError;
@@ -72,7 +73,7 @@ export default function EncoderDashboard() {
     setStatusMsg({ text: '', type: '' });
 
     try {
-      const { data, error } = await supabase.from('incidents').insert([
+      const { error } = await supabase.from('incidents').insert([
         {
           title,
           incident_type: incidentType,
@@ -81,7 +82,7 @@ export default function EncoderDashboard() {
           description,
           created_by: user.id,
         },
-      ]).select();
+      ]);
 
       if (error) throw error;
 
@@ -106,7 +107,7 @@ export default function EncoderDashboard() {
     setStatusMsg({ text: '', type: '' });
 
     try {
-      const { error } = await supabase.from('situation_reports').insert([
+      const { data, error } = await supabase.from('situation_reports').insert([
         {
           incident_id: selectedIncidentId,
           summary,
@@ -114,14 +115,15 @@ export default function EncoderDashboard() {
           affected_individuals: Number(affectedIndividuals),
           evacuation_centers_active: Number(activeEvacCenters),
           status: initialStatus,
+          workflow_status: initialStatus === 'SUBMITTED' ? 'FOR_REVIEW' : 'DRAFT',
           encoded_by: user.id,
         },
-      ]);
+      ]).select();
 
       if (error) throw error;
 
       setStatusMsg({
-        text: `Report successfully saved as ${initialStatus}.`,
+        text: `Report successfully initialized as ${initialStatus}.`,
         type: 'success',
       });
       setSummary('');
@@ -129,28 +131,15 @@ export default function EncoderDashboard() {
       setAffectedIndividuals(0);
       setActiveEvacCenters(0);
       fetchData();
+
+      // If created, optionally navigate straight into its collaborative workspace
+      if (data && data[0]?.id) {
+        navigate(`/sitrep/${data[0].id}`);
+      }
     } catch (err) {
       setStatusMsg({ text: err.message, type: 'error' });
     } finally {
       setSubmittingReport(false);
-    }
-  };
-
-  // Submit an existing draft to Supervisor
-  const handleSubmitDraft = async (reportId) => {
-    try {
-      const { error } = await supabase
-        .from('situation_reports')
-        .update({ status: 'SUBMITTED', updated_at: new Date().toISOString() })
-        .eq('id', reportId)
-        .eq('status', 'DRAFT');
-
-      if (error) throw error;
-
-      setStatusMsg({ text: 'SitRep forwarded to Supervisor for review.', type: 'success' });
-      fetchData();
-    } catch (err) {
-      setStatusMsg({ text: err.message, type: 'error' });
     }
   };
 
@@ -164,11 +153,14 @@ export default function EncoderDashboard() {
               <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-bold rounded">
                 ENCODER
               </span>
+              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-bold rounded uppercase">
+                {profile?.department || 'CDRRMD'}
+              </span>
               <span className="text-xs text-slate-500 font-medium">CDRRMD EOC Field Intake</span>
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Operations Data Desk</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Logged in as {profile?.full_name || profile?.email}
+              Logged in as {profile?.full_name || profile?.email} ({profile?.department || 'Unassigned'})
             </p>
           </div>
           <button
@@ -288,8 +280,8 @@ export default function EncoderDashboard() {
 
             {/* 2. Encode SitRep Card */}
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
-              <h2 className="text-base font-bold text-slate-900 mb-1">2. Encode Situation Report (SitRep)</h2>
-              <p className="text-xs text-slate-500 mb-4">Record casualty and evacuation statistics</p>
+              <h2 className="text-base font-bold text-slate-900 mb-1">2. Initialize Situation Report (SitRep)</h2>
+              <p className="text-xs text-slate-500 mb-4">Start a shared SitRep master record</p>
 
               {incidents.length === 0 ? (
                 <p className="text-xs text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">
@@ -355,7 +347,7 @@ export default function EncoderDashboard() {
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">
-                      Situation Summary & Immediate Needs
+                      Situation Summary & Operational Notes
                     </label>
                     <textarea
                       rows={3}
@@ -390,13 +382,13 @@ export default function EncoderDashboard() {
             </div>
           </div>
 
-          {/* Right Column: Encoded Reports & Status */}
+          {/* Right Column: Situation Reports & Collaborative Workspace Links */}
           <div className="lg:col-span-7 space-y-6">
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
               <div className="p-4 border-b border-slate-200 flex justify-between items-center">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Your Encoded SitReps</h2>
-                  <p className="text-xs text-slate-500">Track clearance and review status</p>
+                  <h2 className="text-base font-bold text-slate-900">Active Situation Reports</h2>
+                  <p className="text-xs text-slate-500">Access and encode department data into shared SitReps</p>
                 </div>
                 <button
                   onClick={fetchData}
@@ -414,14 +406,14 @@ export default function EncoderDashboard() {
                       <th className="px-4 py-3">Incident / Summary</th>
                       <th className="px-4 py-3">Impact Stats</th>
                       <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Action</th>
+                      <th className="px-4 py-3 text-right">Workspace</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {loading ? (
                       <tr>
                         <td colSpan="5" className="px-4 py-8 text-center text-slate-400">
-                          Loading encoded reports...
+                          Loading situation reports...
                         </td>
                       </tr>
                     ) : myReports.length === 0 ? (
@@ -468,18 +460,14 @@ export default function EncoderDashboard() {
                               {rep.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right">
-                            {rep.status === 'DRAFT' && (
-                              <button
-                                onClick={() => handleSubmitDraft(rep.id)}
-                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium transition-colors shadow-sm"
-                              >
-                                Submit
-                              </button>
-                            )}
-                            {rep.status !== 'DRAFT' && (
-                              <span className="text-[11px] text-slate-400 italic">Locked</span>
-                            )}
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => navigate(`/sitrep/${rep.id}`)}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition-colors shadow-sm inline-flex items-center gap-1"
+                            >
+                              <span>Open Workspace</span>
+                              <span>&rarr;</span>
+                            </button>
                           </td>
                         </tr>
                       ))
