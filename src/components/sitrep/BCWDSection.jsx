@@ -1,124 +1,159 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../services/supabase/client';
 import { BUTUAN_BARANGAYS } from '../../data/ButuanBarangays';
 
-export default function BCWDSection({ data, onChange, disabled }) {
-  const interruptions = data.water_interruptions || [];
+export default function BCWDSection({ sitrepId, userDepartment, isSupervisor }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState('NOT_STARTED');
+  const [waterInterrupts, setWaterInterrupts] = useState([]);
+  const [msg, setMsg] = useState({ text: '', type: '' });
 
-  const handleAdd = () => {
-    onChange({
-      ...data,
-      water_interruptions: [
-        ...interruptions,
-        {
-          barangay: BUTUAN_BARANGAYS[0],
-          date_interrupted: '',
-          date_restored: '',
-          remarks: 'Turbidity issue at pumping station'
+  const canEdit = isSupervisor || userDepartment === 'BCWD';
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('sitrep_department_entries')
+          .select('*')
+          .eq('sitrep_id', sitrepId)
+          .eq('department', 'BCWD')
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data) {
+          setStatus(data.status || 'NOT_STARTED');
+          const entry = data.data || {};
+          setWaterInterrupts(Array.isArray(entry.water_interruptions) ? entry.water_interruptions : []);
         }
-      ]
-    });
+      } catch (err) {
+        setMsg({ text: err.message, type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (sitrepId) loadData();
+  }, [sitrepId]);
+
+  const handleSave = async (newStatus) => {
+    setSaving(true);
+    setMsg({ text: '', type: '' });
+    try {
+      const payload = {
+        sitrep_id: sitrepId,
+        department: 'BCWD',
+        status: newStatus,
+        data: { water_interruptions: waterInterrupts },
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('sitrep_department_entries')
+        .upsert(payload, { onConflict: 'sitrep_id,department' });
+
+      if (error) throw error;
+      setStatus(newStatus);
+      setMsg({ text: newStatus === 'COMPLETED' ? 'Submitted to Supervisor!' : 'Draft saved.', type: 'success' });
+    } catch (err) {
+      setMsg({ text: `Failed: ${err.message}`, type: 'error' });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleUpdate = (idx, field, val) => {
-    const next = [...interruptions];
-    next[idx] = { ...next[idx], [field]: val };
-    onChange({ ...data, water_interruptions: next });
-  };
-
-  const handleRemove = (idx) => {
-    onChange({
-      ...data,
-      water_interruptions: interruptions.filter((_, i) => i !== idx)
-    });
-  };
+  if (loading) return <div className="p-6 text-center text-slate-400">Loading BCWD data...</div>;
 
   return (
-    <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h3 className="font-semibold text-slate-800 text-lg">Water Lifeline Interruption & Restoration</h3>
-          <p className="text-xs text-slate-500">Track water supply outages across service zones</p>
+    <div className="space-y-6">
+      {!canEdit && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 rounded-lg text-xs font-medium">
+          You are viewing the <strong>BCWD</strong> section in read-only mode.
         </div>
-        {!disabled && (
-          <button
-            type="button"
-            onClick={handleAdd}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium"
-          >
-            + Add Water Outage
-          </button>
-        )}
+      )}
+
+      {msg.text && (
+        <div className={`p-3 rounded-lg text-xs font-medium border ${msg.type === 'error' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+          {msg.text}
+        </div>
+      )}
+
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div>
+          <h4 className="text-sm font-bold text-slate-900">Butuan City Water District (BCWD)</h4>
+          <p className="text-xs text-slate-500">Water supply distribution and service outage tracking</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' : status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'}`}>
+            {status.replace('_', ' ')}
+          </span>
+          {canEdit && (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => handleSave('IN_PROGRESS')} disabled={saving} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold">
+                {saving ? 'Saving...' : 'Save Draft'}
+              </button>
+              <button type="button" onClick={() => handleSave('COMPLETED')} disabled={saving} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold shadow-sm">
+                Submit for Review
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-slate-50 text-slate-700 border-b border-slate-200">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <h5 className="text-xs font-bold text-slate-800 uppercase">1. Water Supply Disruptions</h5>
+          {canEdit && (
+            <button type="button" onClick={() => setWaterInterrupts([...waterInterrupts, { barangay: BUTUAN_BARANGAYS[0] || '', status: 'OUTAGE', remarks: '' }])} className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-xs font-semibold">
+              + Add Water Outage
+            </button>
+          )}
+        </div>
+        <table className="w-full text-xs text-left">
+          <thead className="bg-slate-50 text-slate-700 font-semibold border-y">
             <tr>
-              <th className="p-2 w-48">Barangay</th>
-              <th className="p-2">Date & Time Interrupted</th>
-              <th className="p-2">Date & Time Restored</th>
-              <th className="p-2">Remarks / Action Taken</th>
-              {!disabled && <th className="p-2 w-12 text-center">Action</th>}
+              <th className="p-2">Service Barangay</th>
+              <th className="p-2">Supply Status</th>
+              <th className="p-2">Action / Remarks</th>
+              {canEdit && <th className="p-2 w-10"></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {interruptions.length === 0 ? (
-              <tr>
-                <td colSpan={disabled ? 4 : 5} className="p-4 text-center text-slate-400 italic">
-                  Water systems operational with no interruptions reported.
-                </td>
-              </tr>
+            {waterInterrupts.length === 0 ? (
+              <tr><td colSpan={4} className="p-4 text-center text-slate-400 italic">Water distribution normal across all zones.</td></tr>
             ) : (
-              interruptions.map((w, idx) => (
-                <tr key={idx}>
-                  <td className="p-1.5">
-                    <select
-                      value={w.barangay}
-                      disabled={disabled}
-                      onChange={(e) => handleUpdate(idx, 'barangay', e.target.value)}
-                      className="w-full border rounded px-2 py-1 text-xs bg-white"
-                    >
-                      {BUTUAN_BARANGAYS.map((b) => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
-                    </select>
+              waterInterrupts.map((w, i) => (
+                <tr key={i}>
+                  <td className="p-2">
+                    {canEdit ? (
+                      <select value={w.barangay} onChange={(e) => {
+                        const copy = [...waterInterrupts]; copy[i].barangay = e.target.value; setWaterInterrupts(copy);
+                      }} className="w-full border rounded p-1 bg-white">
+                        {BUTUAN_BARANGAYS.map((b) => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    ) : w.barangay}
                   </td>
-                  <td className="p-1.5">
-                    <input
-                      type="datetime-local"
-                      value={w.date_interrupted}
-                      disabled={disabled}
-                      onChange={(e) => handleUpdate(idx, 'date_interrupted', e.target.value)}
-                      className="w-full border rounded px-2 py-1 text-xs"
-                    />
+                  <td className="p-2">
+                    {canEdit ? (
+                      <select value={w.status} onChange={(e) => {
+                        const copy = [...waterInterrupts]; copy[i].status = e.target.value; setWaterInterrupts(copy);
+                      }} className="w-full border rounded p-1 bg-white font-medium">
+                        <option value="OUTAGE">INTERRUPTED / LOW PRESSURE</option>
+                        <option value="RESTORED">RESTORED</option>
+                      </select>
+                    ) : w.status}
                   </td>
-                  <td className="p-1.5">
-                    <input
-                      type="datetime-local"
-                      value={w.date_restored}
-                      disabled={disabled}
-                      onChange={(e) => handleUpdate(idx, 'date_restored', e.target.value)}
-                      className="w-full border rounded px-2 py-1 text-xs"
-                    />
+                  <td className="p-2">
+                    {canEdit ? (
+                      <input type="text" placeholder="Taguibo River turbidity shutdown" value={w.remarks} onChange={(e) => {
+                        const copy = [...waterInterrupts]; copy[i].remarks = e.target.value; setWaterInterrupts(copy);
+                      }} className="w-full border rounded p-1" />
+                    ) : w.remarks}
                   </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      value={w.remarks}
-                      disabled={disabled}
-                      onChange={(e) => handleUpdate(idx, 'remarks', e.target.value)}
-                      className="w-full border rounded px-2 py-1 text-xs"
-                    />
-                  </td>
-                  {!disabled && (
-                    <td className="p-1.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(idx)}
-                        className="text-red-600 hover:text-red-800 text-xs font-bold"
-                      >
-                        ✕
-                      </button>
+                  {canEdit && (
+                    <td className="p-2 text-right">
+                      <button type="button" onClick={() => setWaterInterrupts(waterInterrupts.filter((_, idx) => idx !== i))} className="text-rose-600 font-bold">✕</button>
                     </td>
                   )}
                 </tr>
