@@ -14,6 +14,7 @@ import SupervisorDashboard from './pages/supervisor/SupervisorDashboard';
 import EncoderDashboard from './pages/encoder/EncoderDashboard';
 import WeatherDashboard from './pages/weather/WeatherDashboard';
 import SitRepWorkspace from './pages/encoder/SitRepWorkspace';
+import ViewerDashboard from './pages/viewer/ViewerDashboard';
 
 // Layout: Conditionally renders AdminSidebar ONLY for the ADMIN role
 function AppLayout() {
@@ -91,7 +92,13 @@ function RootRoute() {
   if (role === 'SUPERVISOR') {
     return <Navigate to="/supervisor" replace />;
   }
-  return <Navigate to="/encoder" replace />;
+  if (role === 'ENCODER') {
+    return <Navigate to="/encoder" replace />;
+  }
+  if (role === 'VIEWER'){
+    return <Navigate to="/viewer" replace />;
+  }
+  return <Navigate to="/account-pending" replace />;
 }
 
 export default function App() {
@@ -138,6 +145,13 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route path="/viewer" element={
+              <ProtectedRoute allowedRoles={['VIEWER', 'ADMIN']}>
+                <ViewerDashboard />
+              </ProtectedRoute>
+            } />
+
 
             {/* 4. Weather & Hazards Monitoring - Accessible to all authorized roles */}
             <Route
