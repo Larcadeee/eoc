@@ -1,5 +1,4 @@
 // src/App.jsx
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -9,6 +8,8 @@ import AdminSidebar from './components/navigation/AdminSidebar';
 // Pages
 import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
+import AccountPending from './pages/auth/AccountPending';
+import AccessDenied from './pages/auth/AccessDenied';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import SupervisorDashboard from './pages/supervisor/SupervisorDashboard';
 import EncoderDashboard from './pages/encoder/EncoderDashboard';
@@ -50,6 +51,14 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" replace />;
   }
 
+  const status = (profile?.status || '').toUpperCase();
+  if (status === 'PENDING') {
+    return <Navigate to="/account-pending" replace />;
+  }
+  if (status !== 'ACTIVE') {
+    return <Navigate to="/access-denied" replace />;
+  }
+
   const userRole = (profile?.role || '').toUpperCase();
 
   // ADMIN has universal clearance across all desks
@@ -85,6 +94,14 @@ function RootRoute() {
     return <Navigate to="/login" replace />;
   }
 
+  const status = (profile?.status || '').toUpperCase();
+  if (status === 'PENDING') {
+    return <Navigate to="/account-pending" replace />;
+  }
+  if (status !== 'ACTIVE') {
+    return <Navigate to="/access-denied" replace />;
+  }
+
   const role = (profile?.role || '').toUpperCase();
   if (role === 'ADMIN') {
     return <Navigate to="/admin" replace />;
@@ -109,7 +126,9 @@ export default function App() {
           {/* Public Authentication */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-  <Route path="/auth/signup" element={<Signup />} />
+          <Route path="/auth/signup" element={<Signup />} />
+          <Route path="/account-pending" element={<AccountPending />} />
+          <Route path="/access-denied" element={<AccessDenied />} />
 
           {/* Root dynamic redirect */}
           <Route path="/" element={<RootRoute />} />

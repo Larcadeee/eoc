@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../services/supabase/client';
 
 const AuthContext = createContext({});
@@ -89,6 +89,12 @@ export const AuthProvider = ({ children }) => {
       },
     });
     if (error) throw error;
+
+    if (data.session) {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+    }
+
     return data;
   };
 
@@ -98,6 +104,18 @@ export const AuthProvider = ({ children }) => {
       password,
     });
     if (error) throw error;
+
+    const userProfile = await fetchProfile(data.user.id);
+    if (userProfile?.status !== 'ACTIVE') {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+
+      if (userProfile?.status === 'PENDING') {
+        throw new Error('Your account is pending administrator approval.');
+      }
+      throw new Error('Your account is not active. Contact an administrator for assistance.');
+    }
+
     return data;
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,7 +18,7 @@ export default function Signup() {
 
     try {
       await signUp({ email, password, fullName });
-      navigate('/account-pending');
+      navigate('/account-pending', { state: { email } });
     } catch (err) {
       setErrorMsg(err.message || 'Failed to submit registration');
     } finally {
