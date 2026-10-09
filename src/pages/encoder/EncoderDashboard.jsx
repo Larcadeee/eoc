@@ -184,7 +184,7 @@ export default function EncoderDashboard() {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
               >
                 <span>+</span>
-                <span>Create New Disaster</span>
+                <span> New Entry</span>
               </button>
             )}
 
@@ -197,48 +197,36 @@ export default function EncoderDashboard() {
           </div>
         </header>
 
-            {/* Agency Mandate Callout */}
-<div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-  <div>
-    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-0.5">
-      {userDept} Operational Clearance Scope
-    </h2>
-    <p className="text-xs text-slate-600">
-      {getDepartmentMandate(userDept)}
-    </p>
-  </div>
-  <div className="text-[11px] font-medium text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 self-start sm:self-auto">
-    Active Section: <span className="font-bold text-blue-700">{userDept} Desk</span>
-  </div>
-</div>
+
+
 
         {/* Operational KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="text-[11px] font-semibold uppercase text-slate-500">Active Calamity Records</div>
             <div className="text-2xl font-bold text-slate-900 mt-1">{reports.length}</div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Central Disaster Records</div>
+
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="text-[11px] font-semibold uppercase text-amber-600">Working Drafts</div>
             <div className="text-2xl font-bold text-amber-600 mt-1">
               {reports.filter((r) => r.workflow_stage === 'DRAFT').length}
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Continuous field intake</div>
+
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="text-[11px] font-semibold uppercase text-purple-600">Under Review</div>
             <div className="text-2xl font-bold text-purple-600 mt-1">
               {reports.filter((r) => r.workflow_stage === 'FOR_REVIEW').length}
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Submitted to Supervisor</div>
+
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="text-[11px] font-semibold uppercase text-rose-600">Needs Correction</div>
             <div className="text-2xl font-bold text-rose-600 mt-1">
               {reports.filter((r) => r.workflow_stage === 'NEEDS_CORRECTION').length}
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Supervisor notes pending</div>
+
           </div>
         </div>
 

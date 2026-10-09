@@ -1,86 +1,109 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+// src/pages/auth/Login.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Login() {
-  const { signIn } = useAuth();
   const navigate = useNavigate();
+  const { user, profile, loading: authLoading, signIn } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 1. If user is already authenticated or just logged in, forward immediately
+  useEffect(() => {
+    if (!authLoading && user) {
+      const role = (profile?.role || '').toUpperCase();
+      if (role === 'SUPERVISOR' || role === 'ADMIN') {
+        navigate('/supervisor', { replace: true });
+      } else {
+        navigate('/encoder', { replace: true });
+      }
+    }
+  }, [user, profile, authLoading, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
-    setIsSubmitting(true);
+    setLoading(true);
 
     try {
-      await signIn({ email, password });
-      navigate('/');
+      const { data, error } = await signIn({ email, password });
+      if (error) throw error;
+      // The useEffect above will handle redirection once the auth state updates
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to sign in');
-    } finally {
-      setIsSubmitting(false);
+      setErrorMsg(err.message || 'Invalid email or password.');
+      setLoading(false);
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-xs font-semibold text-slate-400">
+        Verifying CDRRMD portal session...
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-sm p-8">
-        <div className="mb-6 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-50 text-blue-600 font-bold rounded-lg mb-3">
-            EOC
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 font-sans">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+        {/* Header Branding */}
+        <div className="text-center space-y-1">
+          <div className="inline-flex w-12 h-12 rounded-xl bg-blue-600 items-center justify-center font-black text-white text-lg shadow-md mb-2">
+            BX
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">CDRRMD EOC Portal</h1>
-          <p className="text-sm text-slate-500 mt-1">Sign in to your disaster management account</p>
+          <h1 className="text-xl font-bold text-white tracking-wide">CDRRMD EOC Portal</h1>
+          <p className="text-xs text-slate-400">Butuan City Disaster Risk Reduction & Management</p>
         </div>
 
         {errorMsg && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          <div className="p-3 rounded-lg text-xs font-medium bg-rose-950/50 border border-rose-800/80 text-rose-300">
             {errorMsg}
           </div>
         )}
 
+        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Email</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Address</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="operator@eoc.gov"
+              placeholder="e.g. officer@butuan.gov.ph"
+              className="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Password</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="••••••••"
+              className="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition-colors disabled:opacity-50"
+            disabled={loading}
+            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? 'Authenticating...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign In to Operations Desk'}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-slate-500">
-          Need an account?{' '}
-          <Link to="/signup" className="text-blue-600 font-medium hover:underline">
-            Register here
-          </Link>
+        <div className="pt-2 border-t border-slate-800 text-center">
+          <p className="text-[11px] text-slate-500">
+            Restricted System • CDRRMD Command & Control Center
+          </p>
         </div>
       </div>
     </div>

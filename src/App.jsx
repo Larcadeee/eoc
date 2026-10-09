@@ -1,85 +1,166 @@
+// src/App.jsx
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
-// Guards
-import ProtectedRoute from './routes/ProtectedRoute';
-import RoleRoute from './routes/RoleRoute';
+// Navigation & Layout
+import AdminSidebar from './components/navigation/AdminSidebar';
 
-// Auth Pages
+// Pages
 import Login from './pages/auth/Login';
-import Signup from './pages/auth/Signup';
-import AccountPending from './pages/auth/AccountPending';
-import AccessDenied from './pages/auth/AccessDenied';
-
-// Dashboards
 import AdminDashboard from './pages/admin/AdminDashboard';
 import SupervisorDashboard from './pages/supervisor/SupervisorDashboard';
 import EncoderDashboard from './pages/encoder/EncoderDashboard';
-import ViewerDashboard from './pages/viewer/ViewerDashboard';
+import WeatherDashboard from './pages/weather/WeatherDashboard';
+import SitRepWorkspace from './pages/encoder/SitRepWorkspace';
 
-// SitRep Collaborative & Review Pages
-import SitRepWorkspace from './pages/encoder/SitRepWorkspace.jsx';
-import SupervisorSitRepReview from './pages/supervisor/SupervisorSitRepReview.jsx';
+// Layout: Conditionally renders AdminSidebar ONLY for the ADMIN role
+function AppLayout() {
+  const { profile } = useAuth();
+  const isAdmin = (profile?.role || '').toUpperCase() === 'ADMIN';
 
-// Helper component: routes active authenticated users to their corresponding dashboard
-function RoleHomeDispatcher() {
-  const { role } = useAuth();
+  return (
+    <div className="flex min-h-screen bg-slate-50 font-sans">
+      {/* Sidebar rendered strictly for ADMIN */}
+      {isAdmin && <AdminSidebar />}
 
-  switch (role) {
-    case 'ADMIN':
-      return <Navigate to="/admin" replace />;
-    case 'SUPERVISOR':
-      return <Navigate to="/supervisor" replace />;
-    case 'ENCODER':
-      return <Navigate to="/encoder" replace />;
-    case 'VIEWER':
-      return <Navigate to="/viewer" replace />;
-    default:
-      return <Navigate to="/access-denied" replace />;
+      {/* Main content takes full width for non-admins, flex-1 when sidebar is mounted */}
+      <main className="flex-1 overflow-x-hidden min-w-0">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+// Resilient Route Guard
+function ProtectedRoute({ children, allowedRoles }) {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-xs font-semibold text-slate-500 font-sans">
+        Authenticating CDRRMD Portal Session...
+      </div>
+    );
   }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const userRole = (profile?.role || '').toUpperCase();
+
+  // ADMIN has universal clearance across all desks
+  if (userRole === 'ADMIN') {
+    return children;
+  }
+
+  // Role restrictions for non-admin accounts
+  if (allowedRoles && allowedRoles.length > 0) {
+    const normalizedAllowed = allowedRoles.map((r) => r.toUpperCase());
+    if (!normalizedAllowed.includes(userRole)) {
+      const fallback = userRole === 'SUPERVISOR' ? '/supervisor' : '/encoder';
+      return <Navigate to={fallback} replace />;
+    }
+  }
+
+  return children;
+}
+
+// Dynamic Root Redirection based on role
+function RootRoute() {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-xs font-semibold text-slate-500 font-sans">
+        Loading Operations Desk...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const role = (profile?.role || '').toUpperCase();
+  if (role === 'ADMIN') {
+    return <Navigate to="/admin" replace />;
+  }
+  if (role === 'SUPERVISOR') {
+    return <Navigate to="/supervisor" replace />;
+  }
+  return <Navigate to="/encoder" replace />;
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/account-pending" element={<AccountPending />} />
-        <Route path="/access-denied" element={<AccessDenied />} />
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public Authentication */}
+          <Route path="/login" element={<Login />} />
 
-        {/* Protected Operational Routes (Must be Authenticated and ACTIVE) */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<RoleHomeDispatcher />} />
+          {/* Root dynamic redirect */}
+          <Route path="/" element={<RootRoute />} />
 
-          {/* ADMIN-only routes */}
-          <Route element={<RoleRoute allowedRoles={['ADMIN']} />}>
-            <Route path="/admin" element={<AdminDashboard />} />
+          {/* Core Shell (Persistent Sidebar exclusively for ADMIN) */}
+          <Route element={<AppLayout />}>
+            {/* 1. Main Command Desk - Strictly restricted to ADMIN */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 2. Supervisor Desk - Accessible to SUPERVISOR & ADMIN */}
+            <Route
+              path="/supervisor"
+              element={
+                <ProtectedRoute allowedRoles={['SUPERVISOR', 'ADMIN']}>
+                  <SupervisorDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 3. Encoder Operations Desk - Accessible to ENCODER & ADMIN */}
+            <Route
+              path="/encoder"
+              element={
+                <ProtectedRoute allowedRoles={['ENCODER', 'ADMIN']}>
+                  <EncoderDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 4. Weather & Hazards Monitoring - Accessible to all authorized roles */}
+            <Route
+              path="/weather"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'SUPERVISOR', 'ENCODER']}>
+                  <WeatherDashboard />
+                </ProtectedRoute>
+              }
+            />
           </Route>
 
-          {/* SUPERVISOR routes */}
-          <Route element={<RoleRoute allowedRoles={['SUPERVISOR', 'ADMIN']} />}>
-            <Route path="/supervisor" element={<SupervisorDashboard />} />
-            <Route path="/supervisor/sitrep/:id" element={<SupervisorSitRepReview />} />
-          </Route>
+          {/* Full-width Workspace (No sidebar interference for all roles during intake & PDF print) */}
+          <Route
+            path="/sitrep/:id"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPERVISOR', 'ENCODER']}>
+                <SitRepWorkspace />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* ENCODER & COLLABORATIVE WORKSPACE routes */}
-          <Route element={<RoleRoute allowedRoles={['ENCODER', 'SUPERVISOR', 'ADMIN']} />}>
-            <Route path="/encoder" element={<EncoderDashboard />} />
-            <Route path="/sitrep/:id" element={<SitRepWorkspace />} />
-          </Route>
-
-          {/* VIEWER routes */}
-          <Route element={<RoleRoute allowedRoles={['VIEWER', 'ENCODER', 'SUPERVISOR', 'ADMIN']} />}>
-            <Route path="/viewer" element={<ViewerDashboard />} />
-          </Route>
-        </Route>
-
-        {/* Catch-all fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Catch-all Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
