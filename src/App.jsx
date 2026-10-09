@@ -8,6 +8,7 @@ import AdminSidebar from './components/navigation/AdminSidebar';
 
 // Pages
 import Login from './pages/auth/Login';
+import Signup from './pages/auth/Signup';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import SupervisorDashboard from './pages/supervisor/SupervisorDashboard';
 import EncoderDashboard from './pages/encoder/EncoderDashboard';
@@ -100,6 +101,8 @@ export default function App() {
         <Routes>
           {/* Public Authentication */}
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+  <Route path="/auth/signup" element={<Signup />} />
 
           {/* Root dynamic redirect */}
           <Route path="/" element={<RootRoute />} />

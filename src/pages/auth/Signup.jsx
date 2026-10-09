@@ -31,10 +31,10 @@ export default function Signup() {
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-sm p-8">
         <div className="mb-6 text-center">
           <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-50 text-blue-600 font-bold rounded-lg mb-3">
-            EOC
+            <img src="cdrrmd-logo.jpg" alt="" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Personnel Registration</h1>
-          <p className="text-sm text-slate-500 mt-1">Register for an authorized operations role</p>
+          <h1 className="text-2xl font-bold text-slate-900">Signup</h1>
+
         </div>
 
         {errorMsg && (
